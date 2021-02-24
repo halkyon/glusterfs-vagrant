@@ -33,6 +33,7 @@ sudo -i
 gluster peer probe 192.168.10.20
 gluster peer probe 192.168.10.30
 gluster volume create gv0 replica 3 192.168.10.{10,20,30}:/mnt/data/gv0
+gluster volume start gv0
 ```
 
 `gv0` is now ready to be mounted!
@@ -49,12 +50,21 @@ mount /mnt/gv0
 
 `/mnt/gv0` is now ready to be used!
 
+## Resizing volume
+
+Increase the `data` disk sizes in `Vagrantfile` to whatever you want, then:
+
+```
+vagrant reload dev-gluster-01 dev-gluster-02 dev-gluster-03
+vagrant ssh dev-gluster-01 -c 'xfs_growfs /mnt/data'
+vagrant ssh dev-gluster-02 -c 'xfs_growfs /mnt/data'
+vagrant ssh dev-gluster-03 -c 'xfs_growfs /mnt/data'
+```
+
 ## Performance testing/tuning
 
 For testing, I use the [`smallfile`](https://github.com/distributed-system-analysis/smallfile) benchmark tool.
 Although your storage use case will vary, e.g. size of files you'll be storing on the cluster, so you may wish to use another benchmark like fio.
-
-[More details on performance testing in GlusterFS docs](https://docs.gluster.org/en/latest/Administrator-Guide/Performance-Testing/).
 
 These options may improve small file performance:
 
@@ -68,12 +78,21 @@ gluster volume set gv0 performance.parallel-readdir on
 NOTE: I tried `nl-cache`, but found file/dir not found errors during benchmarking, so I left those off. In any
 case, it's always a good idea to test after enabling options!
 
-[More details on Gluster performance options](https://docs.gluster.org/en/latest/Administrator-Guide/Performance-Tuning/).
 
-You can also have clients use more threads:
+You can also have clients use more threads, which you'll want to adjust according to `glusterfs` processes with `netstat -ntp | grep glusterfs` on clients:
 
 ```
 gluster volume set gv0 client.event-threads 4
 ```
 
-More details in [Small File Performance Enhancements docs](https://access.redhat.com/documentation/en-us/red_hat_gluster_storage/3.1/html/administration_guide/small_file_performance_enhancements).
+...and use a bigger cache on clients than the default 32MB, which you'll want to adjust according to memory available:
+
+```
+gluster volume set gv0 cache-size 512MB
+```
+
+References:
+
+* [Gluster performance tuning docs](https://docs.gluster.org/en/latest/Administrator-Guide/Performance-Tuning/).
+* [Small File Performance Enhancements docs)](https://access.redhat.com/documentation/en-us/red_hat_gluster_storage/3.1/html/administration_guide/small_file_performance_enhancements).
+* [Performance testing docs](https://docs.gluster.org/en/latest/Administrator-Guide/Performance-Testing/).
